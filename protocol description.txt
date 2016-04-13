@@ -1,0 +1,44 @@
+all ints are big-endian
+
+voter -> CLA:
+can send 1 message:
+    
+    REQ_VALIDATION_NUM = 0x1
+
+
+CLA -> voter:
+can send 2 messages:
+    
+    VALIDATION_NUM || validation num
+        (byte=0x1)      (8 byte int)
+    
+    UNREGISTERED_VOTER
+        (byte=0x2)
+
+
+voter -> CTF:
+can send 2 messages:
+    
+    VOTE           || random voter id || validation num || ballot_size || filled ballot
+        (byte=0x1)       (8 bytes)         (8 bytes)        (4 bytes)     (ballot_size bytes)
+    
+    BALLOT_REQUEST
+        (byte=0x2)
+
+
+CTF -> voter:
+can send 4 messages:
+    
+    VOTE_SUCCESS
+        (byte=0x1)
+    
+    BALLOT_RESPONSE || ballot_size || ballot
+        (byte=0x2)      (4 bytes)       (ballot_size bytes)
+        ballot can be bytes describing a json-formatted dict,
+        or whatever the CTF wants to use
+
+    INVALID_VALIDATION_NUM
+        (byte=0x3)
+
+    VALIDATION_NUM_ALREADY_USED
+        (byte=0x4)
