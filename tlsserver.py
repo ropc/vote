@@ -1,10 +1,10 @@
-import ssl
-from socketserver import TCPServer
+from ssl import create_default_context, Purpose, SSLError
+from socketserver import TCPServer, ForkingMixIn, ThreadingMixIn
 
 
 class TLSServer(TCPServer):
     def __init__(self, server_address, RequestHandlerClass,
-        sslcontext=ssl.create_default_context(ssl.Purpose.CLIENT_AUTH), bind_and_activate=True):
+        sslcontext=create_default_context(Purpose.CLIENT_AUTH), bind_and_activate=True):
         super().__init__(server_address, RequestHandlerClass, bind_and_activate)
         self.sslcontext = sslcontext
 
@@ -18,8 +18,15 @@ class TLSServer(TCPServer):
         try:
             request.do_handshake()
             return True
-        except ssl.SSLError as e:
+        except SSLError as e:
             print(e)
             return False
         except:
             return False
+
+class ForkingTLSServer(ForkingMixIn, TLSServer):
+    pass
+
+
+class ThreadingTLSServer(ThreadingMixIn, TLSServer):
+    pass
