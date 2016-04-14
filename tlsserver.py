@@ -9,10 +9,10 @@ class TLSServer(TCPServer):
         self.sslcontext = sslcontext
 
     def get_request(self):
-        newsocket, fromaddr = self.socket.accept()
-        newsocket = self.sslcontext.wrap_socket(newsocket,
+        request, client_address = self.socket.accept()
+        request = self.sslcontext.wrap_socket(request,
             server_side=True, do_handshake_on_connect=False)
-        return newsocket, fromaddr
+        return request, client_address
 
     def verify_request(self, request, client_address):
         try:
