@@ -1,8 +1,9 @@
 import ssl
 import socket
-from socketserver import BaseRequestHandler, TCPServer
+from socketserver import BaseRequestHandler
 import concurrent.futures
 from random import SystemRandom
+from tlsserver import TLSServer
 
 class CLA(object):
     def __init__(self, voters=['testdude']):
@@ -45,30 +46,6 @@ class CLARequestHandler(BaseRequestHandler):
         print('done serving', self.client_address)
 
 
-class TLSServer(TCPServer):
-    def __init__(self, server_address, RequestHandlerClass,
-        sslcontext=ssl.create_default_context(ssl.Purpose.CLIENT_AUTH), bind_and_activate=True):
-        super().__init__(server_address, RequestHandlerClass, bind_and_activate)
-        self.sslcontext = sslcontext
-
-    def get_request(self):
-        newsocket, fromaddr = self.socket.accept()
-        newsocket = self.sslcontext.wrap_socket(newsocket,
-            server_side=True, do_handshake_on_connect=False)
-        return newsocket, fromaddr
-
-    def verify_request(self, request, client_address):
-        try:
-            request.do_handshake()
-            return True
-        except ssl.SSLError as e:
-            print(e)
-            return False
-        except:
-            return False
-
-
-
 
 # for reference:
 # use randint = random.SystemRandom().getrandbits(64) to get a
@@ -77,30 +54,11 @@ class TLSServer(TCPServer):
 # this over the socket. to get the number back, use int.from_bytes(bytes)
 # bytes represents an immutable byte array.
 
+if __name__ == '__main__':
+    ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
+        cafile="certs/ca-cert.pem")
+    ctx.verify_mode = ssl.CERT_REQUIRED
+    ctx.load_cert_chain(certfile="certs/cla-cert.pem", keyfile="certs/cla-key.pem")
 
-
-ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
-    cafile="certs/ca-cert.pem")
-ctx.verify_mode = ssl.CERT_REQUIRED
-ctx.load_cert_chain(certfile="certs/cla-cert.pem", keyfile="certs/cla-key.pem")
-
-tlsserver = TLSServer(('localhost', 12345), CLARequestHandler, sslcontext=ctx)
-tlsserver.serve_forever()
-
-#bindsocket = socket.socket()
-#bindsocket.bind(('localhost', 12346))
-#bindsocket.listen(5)
-
-
-#def processConnection(context, socket):
-#    connstream = context.wrap_socket(socket, server_side=True)
-#    try:
-#        connstream.send(b'hello')
-#        print(fromaddr, connstream)
-#    finally:
-#        connstream.shutdown(socket.SHUT_RDWR)
-#        connstream.close()
-
-#with concurrent.futures.ProcessPoolExecutor() as executor:
-#    newsocket, fromaddr = bindsocket.accept()
-#    executor.submit(processConnection, ctx, newsocket)
+    tlsserver = TLSServer(('localhost', 12345), CLARequestHandler, sslcontext=ctx)
+    tlsserver.serve_forever()
