@@ -35,6 +35,8 @@ class TLSServer(TCPServer):
         try:
             # this requires some overhead,
             # may want to do this on a separate thread/process
+            # maybe even just have an SSLRequestHnadler class
+            # that takes care of the ssl context request wrapping
             request.do_handshake()
             return True
         except SSLError as e:
