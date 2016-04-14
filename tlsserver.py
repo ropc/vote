@@ -3,6 +3,23 @@ from socketserver import TCPServer, ForkingMixIn, ThreadingMixIn
 
 
 class TLSServer(TCPServer):
+    """TLSServer implementation
+    
+    Provides TLS/SSL connections on top of a TCP connection
+    using Python's ssl module.
+    Note that the given RequestHandlerClass will receive an
+    ssl.SSLSocket object (in self.request) instead of a regular
+    socket object. These are described in:
+    https://docs.python.org/3.4/library/ssl.html#ssl.SSLSocket
+    
+    Extends:
+        TCPServer
+    
+    Instance variables:
+        sslcontext {ssl.SSLContext} -- object to be used in all connections
+                                        established by this server
+    """
+
     def __init__(self, server_address, RequestHandlerClass,
         sslcontext=create_default_context(Purpose.CLIENT_AUTH), bind_and_activate=True):
         super().__init__(server_address, RequestHandlerClass, bind_and_activate)
