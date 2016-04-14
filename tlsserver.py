@@ -26,24 +26,23 @@ class TLSServer(TCPServer):
         self.sslcontext = sslcontext
 
     def get_request(self):
-        request, client_address = self.socket.accept()
+        request, client_address = super().get_request()
         request = self.sslcontext.wrap_socket(request,
             server_side=True, do_handshake_on_connect=False)
         return request, client_address
 
     def verify_request(self, request, client_address):
         try:
+            # this requires some overhead,
+            # may want to do this on a separate thread/process
             request.do_handshake()
             return True
         except SSLError as e:
             print(e)
-            return False
-        except:
-            return False
-
-class ForkingTLSServer(ForkingMixIn, TLSServer):
-    pass
+        return False
 
 
-class ThreadingTLSServer(ThreadingMixIn, TLSServer):
-    pass
+class ForkingTLSServer(ForkingMixIn, TLSServer): pass
+
+
+class ThreadingTLSServer(ThreadingMixIn, TLSServer): pass
