@@ -1,8 +1,11 @@
 import re
 import string
 import random
+import subprocess
+from os import walk, remove
+from os.path import join
 
-def gen_names():
+def gen_voters():
     n = int(input("Enter how many registered voters to generate\n"))
     
     first_names = []
@@ -29,3 +32,18 @@ def gen_names():
         people.append(temp)
         i+=1
     return people
+
+def gen_keys(voters):
+    i = 0
+    
+    for person in voters:
+        outfile = "auth/voters/key-" + str(i) + ".pem"
+        subprocess.check_call(["openssl", "genpkey", "-algorithm", "RSA", "-out", outfile])
+        i+= 1
+
+def del_keys():
+    dr = 'auth/voters'
+    for root, dirs, files in walk(dr):
+        for name in files:
+            remove(join(root,name))
+
