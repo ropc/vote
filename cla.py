@@ -9,7 +9,7 @@ import protocolmessages as pm
 
 
 class CLA(object):
-    def __init__(self, registered_voters=['testdude']):
+    def __init__(self, registered_voters=['test']):
         self.is_accepting_votes = False
         self.voter_validation_number = {}
         self.registered_voters = set(registered_voters)
@@ -19,6 +19,24 @@ class CLA(object):
             self.validation_numbers.append(SystemRandom().getrandbits(64))
     
     def get_validation_number(self, voter):
+        """get the validation number for the given voter
+        
+        if the given voter has not yet been assigned a validation
+        number, then one of the validation numbers is randomly
+        selected for this user and stored as this user's validation
+        number. THAT LIST OF VALIDATION NUMBERS AND THE STORING FOR
+        THE VOTER'S VALIDATION NUMBER NEEDS TO EITHER HAVE A LOCK
+        OR BE ENSURED THAT IT IS ONLY EXECUTED BY ONE DISTRIBUTOR
+        THREAD
+        
+        Arguments:
+            voter {string} -- the voter's commonName. this may be
+                                changed to the voter's whole certificate
+        
+        Returns:
+            int/None -- int representing the validation number if
+                        successful, None otherwise.
+        """
         if not self.is_accepting_votes or voter not in self.registered_voters:
             return None
         if self.voter_validation_number.get(voter) is None:
