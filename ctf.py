@@ -5,6 +5,7 @@ from functools import reduce
 from socketserver import BaseRequestHandler
 from tlsserver import ThreadingTLSServer
 import protocolmessages as pm
+from pprint import pprint
 
 
 class CTF(object):
@@ -15,7 +16,7 @@ class CTF(object):
         self.context.load_cert_chain("certs/ctf-cert.pem",
             keyfile="certs/ctf-key.pem")
         self.options = options
-        self.optionsbytes = json.dumps(self.options).encode()
+        self.optionsbytes = json.dumps(self.options).encode('utf-8')
 
 
 class CTFRequestHandler(BaseRequestHandler):
@@ -26,19 +27,15 @@ class CTFRequestHandler(BaseRequestHandler):
     def handle(self):
         msg = self.request.recv(1)
         if msg == pm.VOTING_OPTIONS_REQUEST:
-            print(pm.VOTING_OPTIONS_RESPONSE)
-            print("size:")
-            print(len(ctf.optionsbytes).to_bytes(4, 'big'))
-            print(ctf.optionsbytes)
             self.request.sendall(pm.VOTING_OPTIONS_RESPONSE
                                     + len(ctf.optionsbytes).to_bytes(4, 'big')
                                     + ctf.optionsbytes)
-
         elif msg == pm.VOTE:
-            voter_id = self.recv(8)
-            validation_num = self.recv(8)
-            ballot_size = self.recv(4)
-            ballot = self.recv(ballot_size)
+            voter_id = int.from_bytes(self.request.recv(8), 'big')
+            validation_num = int.from_bytes(self.request.recv(8), 'big')
+            ballot_size = int.from_bytes(self.request.recv(4), 'big')
+            ballot = self.request.recv(ballot_size)
+            pprint(ballot)
 
     def finish(self):
         print('done serving', self.client_address)
