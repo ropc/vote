@@ -21,7 +21,7 @@ class CLA(object):
         self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
             cafile="certs/ca-cert.pem")
         self.context.verify_mode = ssl.CERT_REQUIRED
-        self.context.load_cert_chain(certfile="certs/cla-cert.pem",
+        self.context.load_cert_chain("certs/cla-cert.pem",
             keyfile="certs/cla-key.pem")
     
     def get_validation_number(self, voter):
