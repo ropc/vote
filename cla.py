@@ -19,10 +19,10 @@ class CLA(object):
             self.validation_numbers.append(SystemRandom().getrandbits(64))
         self.ctflocation = ctflocation
         self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
-            cafile="certs/ca-cert.pem")
+            cafile="auth/ca-cert.pem")
         self.context.verify_mode = ssl.CERT_REQUIRED
-        self.context.load_cert_chain("certs/cla-cert.pem",
-            keyfile="certs/cla-key.pem")
+        self.context.load_cert_chain("auth/cla-cert.pem",
+            keyfile="auth/cla-key.pem")
     
     def get_validation_number(self, voter):
         """get the validation number for the given voter

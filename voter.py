@@ -8,7 +8,7 @@ from pprint import pprint
 
 
 class Voter(object):
-    def __init__(self, certfile, keyfile, cafile='certs/ca-cert.pem',
+    def __init__(self, certfile, keyfile, cafile='auth/ca-cert.pem',
             cla_location=('localhost', 12345), ctf_location=('localhost', 12346)):
         #with open(cafile) as cafp:
         #    self.ca_cert = crypto.load_certificate(crypto.FILETYPE_PEM, cafp.buffer.read())

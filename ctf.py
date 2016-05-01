@@ -11,15 +11,15 @@ from pprint import pprint
 class CTF(object):
     def __init__(self, options, clalocation=('localhost', 12345)):
         self.voter_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
-            cafile="certs/ca-cert.pem")
+            cafile="auth/ca-cert.pem")
         self.voter_context.verify_mode = ssl.CERT_NONE
-        self.voter_context.load_cert_chain("certs/ctf-cert.pem",
-            keyfile="certs/ctf-key.pem")
+        self.voter_context.load_cert_chain("auth/ctf-cert.pem",
+            keyfile="auth/ctf-key.pem")
         self.cla_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
-            cafile="certs/ca-cert.pem")
+            cafile="auth/ca-cert.pem")
         self.cla_context.verify_mode = ssl.CERT_REQUIRED
         self.cla_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
-            cafile="certs/ca-cert.pem")
+            cafile="auth/ca-cert.pem")
 
         self.options = options
         self.optionsbytes = json.dumps(self.options).encode('utf-8')
@@ -33,7 +33,7 @@ class CTFCLARequestHandler(BaseRequestHandler):
         print(cert)
         #msg = self.request.recv(1)
         #if msg == pm.VALIDATION_NUM_LIST:
-            
+
 
 
 
