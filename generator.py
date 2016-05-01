@@ -35,15 +35,60 @@ def gen_voters():
 
 def gen_keys(voters):
     i = 0
+    dr = 'auth/voters'
     
     for person in voters:
-        outfile = "auth/voters/key-" + str(i) + ".pem"
+        outfile = join(dr, "key-" + str(i) + ".pem")
         subprocess.check_call(["openssl", "genpkey", "-algorithm", "RSA", "-out", outfile])
         i+= 1
 
-def del_keys():
+def del_voters():
     dr = 'auth/voters'
     for root, dirs, files in walk(dr):
         for name in files:
             remove(join(root,name))
 
+def gen_certs(voters):
+    dr = 'auth'
+    ca_cert = join(dr, 'ca-cert.pem')
+    ca_key = join(dr, 'ca-key.pem')
+    ca_serial = join(dr, 'ca-cert.srl')
+    i = 0
+
+    for people in voters:
+        v_key = join(dr, 'voters', 'key-' + str(i) + '.pem')
+        v_csr = join(dr, 'voters', 'csr-' + str(i) + '.pem')
+        v_cert = join(dr, 'voters', 'cert-' + str(i) + '.pem')
+        
+        csr_opt = "/CN=" + people[1] + ", " + people[0]
+        
+        subprocess.check_call(
+                ["openssl", "req", "-new", 
+                "-key", v_key,
+                "-out", v_csr,
+                "-subj", csr_opt ])
+        subprocess.check_call(
+                ["openssl", "x509", "-req", 
+                "-CA", ca_cert,
+                "-CAkey", ca_key, 
+                "-CAserial", ca_serial,
+                "-in", v_csr, 
+                "-out", v_cert])
+        remove(v_csr)
+        i+=1
+
+def sign_csrs():
+    dr = 'auth/voters'
+    ca_cert = 'auth/ca-cert.pem'
+    ca_key = 'auth/ca-key.pem'
+
+    for root, dirs, files in walk(dr):
+        for name in files:
+            if 'csr' in name:
+                subprocess.check_call(
+                        ["openssl", "x509", "-req", 
+                        "-CA", ca_cert,
+                        "-CAkey", ca_key, 
+                        "-CAcreateserial",
+                        "-in", join(root, name), 
+                        "-out", join(root, 'cert' + name[3:])])
