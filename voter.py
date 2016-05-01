@@ -64,7 +64,6 @@ class Voter(object):
         sock.close()
 
 
-
 if __name__ == '__main__':
     voter = Voter(certfile='test-cert.pem', keyfile='test-key.pem')
     voter.request_validation_number()
@@ -83,7 +82,7 @@ if __name__ == '__main__':
             print(info)
         index = int(input(""))
 
-        candidate_hash = office['candidates'][0]['sha1']
+        candidate_hash = office['candidates'][index]['sha1']
 
         ballot['offices'].append({
                 'name': office['name'],

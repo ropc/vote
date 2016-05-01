@@ -10,16 +10,34 @@ from pprint import pprint
 
 class CTF(object):
     def __init__(self, options, clalocation=('localhost', 12345)):
-        self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
+        self.voter_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
             cafile="certs/ca-cert.pem")
-        self.context.verify_mode = ssl.CERT_NONE
-        self.context.load_cert_chain("certs/ctf-cert.pem",
+        self.voter_context.verify_mode = ssl.CERT_NONE
+        self.voter_context.load_cert_chain("certs/ctf-cert.pem",
             keyfile="certs/ctf-key.pem")
+        self.cla_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
+            cafile="certs/ca-cert.pem")
+        self.cla_context.verify_mode = ssl.CERT_REQUIRED
+        self.cla_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
+            cafile="certs/ca-cert.pem")
+
         self.options = options
         self.optionsbytes = json.dumps(self.options).encode('utf-8')
+        self.is_accepting_votes = False
+        self.validation_numbers = None
 
 
-class CTFRequestHandler(BaseRequestHandler):
+class CTFCLARequestHandler(BaseRequestHandler):
+    def handle(self):
+        cert = self.request.getpeercert()
+        print(cert)
+        #msg = self.request.recv(1)
+        #if msg == pm.VALIDATION_NUM_LIST:
+            
+
+
+
+class CTFVoterRequestHandler(BaseRequestHandler):
     ctf = None
     def setup(self):
         print("serving", self.client_address)
@@ -34,8 +52,10 @@ class CTFRequestHandler(BaseRequestHandler):
             voter_id = int.from_bytes(self.request.recv(8), 'big')
             validation_num = int.from_bytes(self.request.recv(8), 'big')
             ballot_size = int.from_bytes(self.request.recv(4), 'big')
-            ballot = self.request.recv(ballot_size)
+            ballot = json.loads(str(self.request.recv(ballot_size), 'utf-8'))
             pprint(ballot)
+        else:
+            self.request.sendall(pm.UNKNOWN_MSG)
 
     def finish(self):
         print('done serving', self.client_address)
@@ -69,7 +89,7 @@ if __name__ == '__main__':
             candidatedict['sha1'] = hashfunc.hexdigest()
 
     ctf = CTF(options)
-    CTFRequestHandler.ctf = ctf
+    CTFVoterRequestHandler.ctf = ctf
 
     #vote = {
     #    'offices': [
@@ -80,5 +100,8 @@ if __name__ == '__main__':
     #    ]
     #}
 
-    ctfserver = ThreadingTLSServer(('localhost', 12346), CTFRequestHandler, sslcontext=ctf.context)
+    ctfserver = ThreadingTLSServer(('localhost', 12346), CTFCLARequestHandler, sslcontext=ctf.cla_context)
+    while not ctf.is_accepting_votes:
+        ctfserver.handle_request()
+    ctfserver = ThreadingTLSServer(('localhost', 12346), CTFVoterRequestHandler, sslcontext=ctf.voter_context)
     ctfserver.serve_forever()
