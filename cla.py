@@ -42,7 +42,7 @@ class CLA(object):
         Returns:
             int/None -- int representing the validation number if
                         successful, None otherwise.
-        """
+        """ 
         if not self.is_accepting_votes or voter not in self.registered_voters_numbers.keys():
             return None
         if self.registered_voters_numbers.get(voter) is None:
@@ -55,7 +55,14 @@ class CLA(object):
         sock = self.context.wrap_socket(sock, server_hostname='CTF')
         vnumbytes = map(lambda x: x.to_bytes(8, 'big'), self.validation_numbers)
         vnumlistbytes = reduce(lambda x, y: x + y, vnumbytes)
-        sock.sendall(pm. vnumlistbytes)
+        vnumcountbytes = len(self.validation_numbers).to_bytes(4, 'big')
+        sock.sendall(pm.VALIDATION_NUM_LIST + vnumcountbytes + vnumlistbytes)
+        resp = sock.recv(1)
+        if resp != pm.VNUM_LIST_ACCEPT:
+            print("ctf accepted list. now accepting vnum requests")
+            self.is_accepting_votes = True
+        else:
+            print("ctf response: {0}".format(resp))
 
 
 class CLARequestHandler(BaseRequestHandler):
