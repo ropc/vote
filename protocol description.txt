@@ -52,8 +52,8 @@ can send 4 messages:
     VOTE_SUCCESS
         (byte=0x6)
     
-    BALLOT_RESPONSE || ballot_size || ballot
-        (byte=0x7)      (4 bytes)       (ballot_size bytes)
+    VOTING_OPTIONS_RESPONSE || VOTING_OPTIONS_size || ballot
+        (byte=0x7)                (4 bytes)           (ballot_size bytes)
         ballot can be bytes describing a json-formatted dict,
         or whatever the CTF wants to use
 
