@@ -9,14 +9,20 @@ import protocolmessages as pm
 
 
 class CLA(object):
-    def __init__(self, registered_voters=['test']):
+    def __init__(self, registered_voters=['test'],
+            ctflocation=('localhost', 12346)):
         self.is_accepting_votes = False
-        self.voter_validation_number = {}
-        self.registered_voters = set(registered_voters)
+        self.registered_voters_numbers = {}
         self.validation_numbers = []
         for voter in registered_voters:
-            self.voter_validation_number[voter] = None
+            self.registered_voters_numbers[voter] = None
             self.validation_numbers.append(SystemRandom().getrandbits(64))
+        self.ctflocation = ctflocation
+        self.context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
+            cafile="certs/ca-cert.pem")
+        self.context.verify_mode = ssl.CERT_REQUIRED
+        self.context.load_cert_chain(certfile="certs/cla-cert.pem",
+            keyfile="certs/cla-key.pem")
     
     def get_validation_number(self, voter):
         """get the validation number for the given voter
@@ -37,12 +43,19 @@ class CLA(object):
             int/None -- int representing the validation number if
                         successful, None otherwise.
         """
-        if not self.is_accepting_votes or voter not in self.registered_voters:
+        if not self.is_accepting_votes or voter not in self.registered_voters_numbers.keys():
             return None
-        if self.voter_validation_number.get(voter) is None:
+        if self.registered_voters_numbers.get(voter) is None:
             random_index = SystemRandom().randint(0, len(self.validation_numbers) - 1)
-            self.voter_validation_number[voter] = self.validation_numbers.pop(random_index)
-        return self.voter_validation_number[voter]
+            self.registered_voters_numbers[voter] = self.validation_numbers.pop(random_index)
+        return self.registered_voters_numbers[voter]
+
+    def send_validation_numbers(self):
+        sock = socket.create_connection(self.ctflocation)
+        sock = self.context.wrap_socket(sock, server_hostname='CTF')
+        vnumbytes = map(lambda x: x.to_bytes(8, 'big'), self.validation_numbers)
+        vnumlistbytes = reduce(lambda x, y: x + y, vnumbytes)
+        sock.sendall(pm. vnumlistbytes)
 
 
 class CLARequestHandler(BaseRequestHandler):
@@ -82,14 +95,9 @@ class CLARequestHandler(BaseRequestHandler):
 # bytes represents an immutable byte array.
 
 if __name__ == '__main__':
-    ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
-        cafile="certs/ca-cert.pem")
-    ctx.verify_mode = ssl.CERT_REQUIRED
-    ctx.load_cert_chain(certfile="certs/cla-cert.pem", keyfile="certs/cla-key.pem")
-
     cla = CLA()
     cla.is_accepting_votes = True
     CLARequestHandler.cla = cla
 
-    tlsserver = ThreadingTLSServer(('localhost', 12345), CLARequestHandler, sslcontext=ctx)
+    tlsserver = ThreadingTLSServer(('localhost', 12345), CLARequestHandler, sslcontext=cla.context)
     tlsserver.serve_forever()
