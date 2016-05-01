@@ -19,8 +19,7 @@ class Voter(object):
         self.ctflocation = ctflocation
     
     def connect_to_CLA(self):
-        sock = socket.socket()
-        sock.connect(self.clalocation)
+        sock = socket.create_connection(self.clalocation)
         sock = self.context.wrap_socket(sock, server_hostname='CLA')
         return sock
 
