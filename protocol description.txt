@@ -1,13 +1,24 @@
 all ints are big-endian
 
-handshake:
+NOT IMPLEMENTED: handshake:
     define:
         1) protocol version
         2) timeout
         3) sender role (voter, CLA, CTF)
     ^ each one byte
 
-Messages: will all get a length prefix (a 4-byte int)
+NOT IMPLEMENTED: Messages: will all get a length prefix (a 4-byte int)
+
+CLA -> CTF:
+    
+    VALIDATION_NUM_LIST ||   count   || validation nums
+        (byte=0x10)        (4 bytes)     (count 8-byte ints)
+
+CTF -> CLA:
+    
+    VNUM_LIST_ACCEPT
+        (byte=0x11)
+
 
 voter -> CLA:
 can send 1 message:
