@@ -18,7 +18,8 @@ CTF -> CLA:
     
     VNUM_LIST_ACCEPT
         (byte=0x11)
-
+    VNUM_REMAINDERS  || count || validation nums
+        (byte=0x12)      4         (count * 8-byte ints)
 
 voter -> CLA:
 can send 1 message:
