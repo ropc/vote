@@ -6,11 +6,11 @@ from socketserver import BaseRequestHandler
 from tlsserver import ThreadingTLSServer
 import protocolmessages as pm
 from pprint import pprint
-from threading import Thread, Lock
+from threading import Thread, Lock, Condition
 
 
 class CTF(object):
-    def __init__(self, options, clalocation=('localhost', 12345)):
+    def __init__(self, options, clalocation=('localhost', 12348)):
         self.voter_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
             cafile="auth/ca-cert.pem")
         self.voter_context.load_cert_chain("auth/ctf-cert.pem",
@@ -79,6 +79,18 @@ class CTF(object):
         return response
 
     def output_results(self):
+        sock = socket.create_connection(self.clalocation)
+        sock = self.context_wrap_socket(sock, server_hostname='CLA')
+        vnumbytes = map(lambda x: x.to_bytes(8, 'big'), self.unused_validation_numbers)
+        vnumlistbytes = reduce(lambda x, y: x + y, vnumbytes)
+        vnumcountbytes = len(self.unused_validation_numbers).to_bytes(4, 'big')
+        sock.sendall(pm.VNUM_REMAINDERS + vnumcountbytes + vnumlistbytes)
+        resp = sock.recv(1)
+        if resp == pm.VNUM_REMAIN_ACCEPT:
+            print("CLA accepted unused vnums. Now printing election results")
+            sock.close()
+        else:
+            print("CLA response: {0}".format(resp))
         with open('results.json', 'w') as fp:
             json.dump(self.options, fp)
 
@@ -118,6 +130,7 @@ class CTFCLARequestHandler(BaseRequestHandler):
 
     def finish(self):
         print('done serving', self.client_address)
+    
 
 
 class CTFVoterRequestHandler(BaseRequestHandler):

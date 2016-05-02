@@ -17,8 +17,10 @@ class CLA(object):
             for line in fp:
                 registered_voters.append(line.rstrip())
         self.is_accepting_votes = False
+        self.got_vnum_remainders = False
         self.registered_voters_numbers = {}
         self.validation_numbers = []
+        self.unused_validation_numbers = None
         for voter in registered_voters:
             self.registered_voters_numbers[voter] = None
             self.validation_numbers.append(SystemRandom().getrandbits(64))
@@ -66,8 +68,10 @@ class CLA(object):
         if resp == pm.VNUM_LIST_ACCEPT:
             print("ctf accepted list. now accepting vnum requests")
             self.is_accepting_votes = True
+            sock.close()
         else:
             print("ctf response: {0}".format(resp))
+    
 
 
 class CLARequestHandler(BaseRequestHandler):
@@ -93,6 +97,7 @@ class CLARequestHandler(BaseRequestHandler):
                 else:
                     print("sending UNREGISTERED_VOTER to {0}".format(self.client_address))
                     self.request.sendall(pm.UNREGISTERED_VOTER)
+            
             else:
                 print("got unknown request:", msg)
                 self.BaseRequestHandler.sendall(pm.UNKNOWN_MSG)
@@ -100,6 +105,29 @@ class CLARequestHandler(BaseRequestHandler):
     def finish(self):
         print('done serving', self.client_address)
 
+class CTFCLARequestHandler(BaseRequestHandler):
+    ca = None
+    def setup(self):
+        print("serving", self.client_address)
+
+    def handle(self):
+        ctfcert = dict((x[0] for x in self.request.getpeercert()['subject']))
+        if ctfcert['commonName'] == 'CTF':
+            msg = self.request.recv(1)
+            if msg == pm.VNUM_REMAINDERS:
+                validation_num_count = int.from_bytes(self.request.recv(4), 'big')
+                cla.unused_validation_numbers = set()
+                for x in range(validation_num_count):
+                    cla.unused_validation_numbers.add(int.from_bytes(self.request.recv(8), 'big'))
+                cla.got_vnum_remainders = True 
+                self.request.sendall(pm.VNUM_REMAIN_ACCEPT)
+            else:
+                self.request.sendall(pm.UNKNOWN_MSG)
+
+def acceptCTFvnums(cla, claserver):
+    while not cla.got_vnum_remainders:
+        claserver.handle_request()
+   # Compare list values here?
 
 
 # for reference:
@@ -115,6 +143,9 @@ if __name__ == '__main__':
     CLARequestHandler.cla = cla
 
     cla.send_validation_numbers()
+
+    clactfserver = ThreadingTLSServer(('localhost', 12348), CTFCLARequestHandler, sslcontext=cla.context)
+    Thread(target=acceptCTFvnums, args=(cla, clactfserver)).start()
 
     tlsserver = ThreadingTLSServer(('localhost', 12345), CLARequestHandler, sslcontext=cla.context)
     tlsserver.serve_forever()
