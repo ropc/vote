@@ -5,12 +5,13 @@ import concurrent.futures
 from random import SystemRandom
 from tlsserver import TLSServer, ThreadingTLSServer
 from pprint import pprint
+from functools import reduce
 import protocolmessages as pm
 
 
 class CLA(object):
     def __init__(self, registered_voters=['test'],
-            ctflocation=('localhost', 12346)):
+            ctflocation=('localhost', 12347)):
         self.is_accepting_votes = False
         self.registered_voters_numbers = {}
         self.validation_numbers = []
@@ -58,7 +59,7 @@ class CLA(object):
         vnumcountbytes = len(self.validation_numbers).to_bytes(4, 'big')
         sock.sendall(pm.VALIDATION_NUM_LIST + vnumcountbytes + vnumlistbytes)
         resp = sock.recv(1)
-        if resp != pm.VNUM_LIST_ACCEPT:
+        if resp == pm.VNUM_LIST_ACCEPT:
             print("ctf accepted list. now accepting vnum requests")
             self.is_accepting_votes = True
         else:
@@ -72,22 +73,23 @@ class CLARequestHandler(BaseRequestHandler):
 
     def handle(self):
         msg = self.request.recv(1)
-        if msg == pm.REQ_VALIDATION_NUM:
-            print("got REQ_VALIDATION_NUM from")
-            pprint(self.request.getpeercert())
-            # this is just to get the certificate into a
-            # dict that is actually useful
-            votercert = dict((x[0] for x in self.request.getpeercert()['subject']))
-            vnum = cla.get_validation_number(votercert['commonName'])
-            if vnum is not None:
-                print("sending voter validation number: {0}".format(vnum))
-                self.request.sendall(pm.VALIDATION_NUM + vnum.to_bytes(8, 'big'))
+        if cla.is_accepting_votes:
+            if msg == pm.REQ_VALIDATION_NUM:
+                print("got REQ_VALIDATION_NUM from")
+                pprint(self.request.getpeercert())
+                # this is just to get the certificate into a
+                # dict that is actually useful
+                votercert = dict((x[0] for x in self.request.getpeercert()['subject']))
+                vnum = cla.get_validation_number(votercert['commonName'])
+                if vnum is not None:
+                    print("sending voter validation number: {0}".format(vnum))
+                    self.request.sendall(pm.VALIDATION_NUM + vnum.to_bytes(8, 'big'))
+                else:
+                    print("sending UNREGISTERED_VOTER to {0}".format(self.client_address))
+                    self.request.sendall(pm.UNREGISTERED_VOTER)
             else:
-                print("sending UNREGISTERED_VOTER to {0}".format(self.client_address))
-                self.request.sendall(pm.UNREGISTERED_VOTER)
-        else:
-            print("got unknown request:", msg)
-            self.BaseRequestHandler.sendall(pm.UNKNOWN_MSG)
+                print("got unknown request:", msg)
+                self.BaseRequestHandler.sendall(pm.UNKNOWN_MSG)
 
     def finish(self):
         print('done serving', self.client_address)
@@ -105,6 +107,8 @@ if __name__ == '__main__':
     cla = CLA()
     cla.is_accepting_votes = True
     CLARequestHandler.cla = cla
+
+    cla.send_validation_numbers()
 
     tlsserver = ThreadingTLSServer(('localhost', 12345), CLARequestHandler, sslcontext=cla.context)
     tlsserver.serve_forever()
