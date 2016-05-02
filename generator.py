@@ -26,12 +26,18 @@ def gen_voters():
         last_names.append(temp)
     fp.close()
 
+    fp = open('reg_voters.txt', 'w')
+
     i = 0
     while i < n:
         temp = (random.choice(first_names), random.choice(last_names))
+        print(temp[1] + ", " + temp[0] , "", '', file=fp)
         people.append(temp)
         i+=1
+    
+    fp.close()
     return people
+    
 
 def gen_keys(voters):
     i = 0
