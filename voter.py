@@ -86,7 +86,7 @@ if __name__ == '__main__':
 
         ballot['offices'].append({
                 'name': office['name'],
-                'candidate': candidate_hash,
+                'candidate_hash': candidate_hash,
             })
 
     voter.vote(ballot)

@@ -60,8 +60,11 @@ can send 4 messages:
     INVALID_VALIDATION_NUM
         (byte=0x8)
 
-    VALIDATION_NUM_ALREADY_USED
+    INVALID_BALLOT
         (byte=0x9)
+
+    VOTE_ERROR
+        (byte=0xa)
 
 
 Utility:
