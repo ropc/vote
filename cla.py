@@ -6,6 +6,7 @@ from random import SystemRandom
 from tlsserver import TLSServer, ThreadingTLSServer
 from pprint import pprint
 from functools import reduce
+from threading import Thread, Lock
 import protocolmessages as pm
 
 
@@ -17,10 +18,11 @@ class CLA(object):
             for line in fp:
                 registered_voters.append(line.rstrip())
         self.is_accepting_votes = False
+        self.is_finished = False
         self.got_vnum_remainders = False
         self.registered_voters_numbers = {}
         self.validation_numbers = []
-        self.unused_validation_numbers = None
+        self.unused_validation_numbers = set()
         for voter in registered_voters:
             self.registered_voters_numbers[voter] = None
             self.validation_numbers.append(SystemRandom().getrandbits(64))
@@ -68,9 +70,9 @@ class CLA(object):
         if resp == pm.VNUM_LIST_ACCEPT:
             print("ctf accepted list. now accepting vnum requests")
             self.is_accepting_votes = True
-            sock.close()
         else:
             print("ctf response: {0}".format(resp))
+        sock.close()
     
 
 
@@ -105,8 +107,8 @@ class CLARequestHandler(BaseRequestHandler):
     def finish(self):
         print('done serving', self.client_address)
 
-class CTFCLARequestHandler(BaseRequestHandler):
-    ca = None
+class CLACTFRequestHandler(BaseRequestHandler):
+    cla = None
     def setup(self):
         print("serving", self.client_address)
 
@@ -116,13 +118,21 @@ class CTFCLARequestHandler(BaseRequestHandler):
             msg = self.request.recv(1)
             if msg == pm.VNUM_REMAINDERS:
                 validation_num_count = int.from_bytes(self.request.recv(4), 'big')
-                cla.unused_validation_numbers = set()
                 for x in range(validation_num_count):
                     cla.unused_validation_numbers.add(int.from_bytes(self.request.recv(8), 'big'))
                 cla.got_vnum_remainders = True 
                 self.request.sendall(pm.VNUM_REMAIN_ACCEPT)
+                cla.is_finished = True
             else:
                 self.request.sendall(pm.UNKNOWN_MSG)
+            #print('unused validation numbers: ({0} total)\n{1}'.format(
+            #    len(cla.unused_validation_numbers), cla.unused_validation_numbers))
+            if len(cla.unused_validation_numbers) > 0:
+                print('voters who did not vote:')
+                for voter, vnum in cla.registered_voters_numbers.items():
+                    if ((vnum is not None and vnum in cla.unused_validation_numbers)
+                            or vnum is None):
+                        print(voter)
 
 def acceptCTFvnums(cla, claserver):
     while not cla.got_vnum_remainders:
@@ -141,11 +151,15 @@ if __name__ == '__main__':
     cla = CLA('reg_voters.txt')
     cla.is_accepting_votes = True
     CLARequestHandler.cla = cla
+    CLACTFRequestHandler.cla = cla
 
     cla.send_validation_numbers()
 
-    clactfserver = ThreadingTLSServer(('localhost', 12348), CTFCLARequestHandler, sslcontext=cla.context)
+    clactfserver = ThreadingTLSServer(('localhost', 12348), CLACTFRequestHandler, sslcontext=cla.context)
+    clactfserver.timeout = 1
     Thread(target=acceptCTFvnums, args=(cla, clactfserver)).start()
 
     tlsserver = ThreadingTLSServer(('localhost', 12345), CLARequestHandler, sslcontext=cla.context)
-    tlsserver.serve_forever()
+    tlsserver.timeout = 1
+    while not cla.is_finished:
+        tlsserver.handle_request()
