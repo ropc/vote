@@ -9,9 +9,14 @@ import protocolmessages as pm
 
 
 class CLA(object):
-    def __init__(self, registered_voters=['test'],
+    def __init__(self, voter_file,
             ctflocation=('localhost', 12346)):
-        self.is_accepting_votes = False
+        registered_voters = []
+        with open(voter_file) as fp:
+            for line in fp:
+                registered_voters.append(line.rstrip())
+       
+       self.is_accepting_votes = False
         self.registered_voters_numbers = {}
         self.validation_numbers = []
         for voter in registered_voters:
@@ -102,7 +107,7 @@ class CLARequestHandler(BaseRequestHandler):
 # bytes represents an immutable byte array.
 
 if __name__ == '__main__':
-    cla = CLA()
+    cla = CLA('reg_voters.txt')
     cla.is_accepting_votes = True
     CLARequestHandler.cla = cla
 
