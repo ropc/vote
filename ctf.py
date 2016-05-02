@@ -78,6 +78,10 @@ class CTF(object):
             response = pm.INVALID_BALLOT
         return response
 
+    def output_results(self):
+        with open('results.json', 'w') as fp:
+            json.dump(self.options, fp)
+
     def voting_is_finished(self):
         self.is_finished = False
         if ctf.lock.acquire(blocking=False):
@@ -90,7 +94,7 @@ class CTF(object):
         ctf.lock.acquire()
         ctf.is_finished = True
         print('voting finished by force')
-
+        self.output_results()
 
 
 class CTFCLARequestHandler(BaseRequestHandler):
@@ -148,6 +152,7 @@ class CTFVoterRequestHandler(BaseRequestHandler):
         pprint(ctf.options)
         if ctf.voting_is_finished():
             print('voting is finished')
+            ctf.output_results()
 
 
 def acceptclarequests(ctf, ctfserver):
