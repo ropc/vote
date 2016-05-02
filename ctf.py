@@ -1,16 +1,17 @@
 import ssl
 import json
+import socket
 from hashlib import sha1
 from functools import reduce
 from socketserver import BaseRequestHandler
 from tlsserver import ThreadingTLSServer
 import protocolmessages as pm
 from pprint import pprint
-from threading import Thread, Lock
+from threading import Thread, RLock, Condition
 
 
 class CTF(object):
-    def __init__(self, options, clalocation=('localhost', 12345)):
+    def __init__(self, options, cla_location=('localhost', 12348)):
         self.voter_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH,
             cafile="auth/ca-cert.pem")
         self.voter_context.load_cert_chain("auth/ctf-cert.pem",
@@ -22,6 +23,7 @@ class CTF(object):
         self.cla_context.load_cert_chain("auth/ctf-cert.pem",
             keyfile="auth/ctf-key.pem")
         self.cla_context.verify_mode = ssl.CERT_REQUIRED
+        self.cla_location = cla_location
 
         self.options = options
         for office in self.options['offices']:
@@ -35,7 +37,7 @@ class CTF(object):
         self.is_accepting_votes = False
         self.unused_validation_numbers = None
         self.is_finished = False
-        self.lock = Lock()
+        self.lock = RLock()
         for office in self.options['offices']:
             for candidate in office['candidates']:
                 candidate['votes'] = []
@@ -79,8 +81,28 @@ class CTF(object):
         return response
 
     def output_results(self):
-        with open('results.json', 'w') as fp:
-            json.dump(self.options, fp)
+        try:
+            sock = socket.create_connection(self.cla_location)
+            sock = self.cla_context.wrap_socket(sock, server_hostname='CLA')
+            with self.lock:
+                vnumbytes = map(lambda x: x.to_bytes(8, 'big'), self.unused_validation_numbers)
+                vnumlistbytes = reduce(lambda x, y: x + y, vnumbytes, b'')
+                vnumcountbytes = len(self.unused_validation_numbers).to_bytes(4, 'big') 
+            sock.sendall(pm.VNUM_REMAINDERS + vnumcountbytes + vnumlistbytes)
+            resp = sock.recv(1)
+            if resp == pm.VNUM_REMAIN_ACCEPT:
+                print("CLA accepted unused vnums. Now printing election results")
+            else:
+                print("CLA response: {0}".format(resp))
+            sock.close()
+        except:
+            print("could not establish communication with cla")
+        with self.lock:
+            print("final results:")
+            pprint(options)
+            print("saving election results to 'results.json'")
+            with open('results.json', 'w') as fp:
+                json.dump(self.options, fp)
 
     def voting_is_finished(self):
         self.is_finished = False
@@ -91,10 +113,10 @@ class CTF(object):
         return self.is_finished
 
     def force_finish_voting(self):
-        ctf.lock.acquire()
-        ctf.is_finished = True
-        print('voting finished by force')
-        self.output_results()
+        with ctf.lock:
+            ctf.is_finished = True
+            print('voting finished by force')
+            self.output_results()
 
 
 class CTFCLARequestHandler(BaseRequestHandler):
@@ -118,6 +140,7 @@ class CTFCLARequestHandler(BaseRequestHandler):
 
     def finish(self):
         print('done serving', self.client_address)
+    
 
 
 class CTFVoterRequestHandler(BaseRequestHandler):
