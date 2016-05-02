@@ -10,8 +10,12 @@ import protocolmessages as pm
 
 
 class CLA(object):
-    def __init__(self, registered_voters=['test'],
+    def __init__(self, voter_file,
             ctflocation=('localhost', 12347)):
+        registered_voters = []
+        with open(voter_file) as fp:
+            for line in fp:
+                registered_voters.append(line.rstrip())
         self.is_accepting_votes = False
         self.registered_voters_numbers = {}
         self.validation_numbers = []
@@ -80,6 +84,8 @@ class CLARequestHandler(BaseRequestHandler):
                 # this is just to get the certificate into a
                 # dict that is actually useful
                 votercert = dict((x[0] for x in self.request.getpeercert()['subject']))
+                pprint(votercert)
+                pprint(cla.registered_voters_numbers.keys())
                 vnum = cla.get_validation_number(votercert['commonName'])
                 if vnum is not None:
                     print("sending voter validation number: {0}".format(vnum))
@@ -104,7 +110,7 @@ class CLARequestHandler(BaseRequestHandler):
 # bytes represents an immutable byte array.
 
 if __name__ == '__main__':
-    cla = CLA()
+    cla = CLA('reg_voters.txt')
     cla.is_accepting_votes = True
     CLARequestHandler.cla = cla
 

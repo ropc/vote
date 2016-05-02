@@ -64,14 +64,14 @@ class CTF(object):
             with self.lock:
                 if validation_num in self.unused_validation_numbers:
                     self.unused_validation_numbers.remove(validation_num)
-                    if self.validation_num_is_valid(validation_num):
-                        for ballot_office in ballot['offices']:
-                            office_index = self.options['office_indexes'][ballot_office['name']]
-                            office = self.options['offices'][office_index]
-                            candidate_index = office['candidate_hash_indexes'][ballot_office['candidate_hash']]
-                            candidate = office['candidates'][candidate_index]
-                            assert candidate['sha1'] == ballot_office['candidate_hash'], "Wrong candidate matched"
-                            response = pm.VOTE_SUCCESS
+                    for ballot_office in ballot['offices']:
+                        office_index = self.options['office_indexes'][ballot_office['name']]
+                        office = self.options['offices'][office_index]
+                        candidate_index = office['candidate_hash_indexes'][ballot_office['candidate_hash']]
+                        candidate = office['candidates'][candidate_index]
+                        assert candidate['sha1'] == ballot_office['candidate_hash'], "Wrong candidate matched"
+                        candidate['votes'].append(voter_random_id)
+                        response = pm.VOTE_SUCCESS
                 else:
                     response = pm.INVALID_VALIDATION_NUM
         else:

@@ -17,6 +17,7 @@ class Voter(object):
         #    self.cert = crypto.load_certificate(crypto.FILETYPE_PEM, certfp.buffer.read())
         #with open(keyfile) as keyfp:
         #    self.private_key = crypto.load_privatekey(crypto.FILETYPE_PEM, keyfp.buffer.read())
+        print(certfile, keyfile)
         self.cla_context = ssl.create_default_context(cafile=cafile)
         self.cla_context.load_cert_chain(certfile=certfile, keyfile=keyfile)
         self.ctf_context = ssl.create_default_context(cafile=cafile)
@@ -26,6 +27,7 @@ class Voter(object):
         self.ctf_location = ctf_location
 
     def request_validation_number(self):
+        is_successful = False
         sock = socket.create_connection(self.cla_location)
         sock = self.cla_context.wrap_socket(sock, server_hostname='CLA')
         sock.sendall(pm.REQ_VALIDATION_NUM)
@@ -34,9 +36,13 @@ class Voter(object):
             vbytes = sock.recv(8)
             self.validation_number = int.from_bytes(vbytes, 'big')
             print("got validation number: {0}".format(self.validation_number))
+            is_successful = True
+        elif msg == pm.UNREGISTERED_VOTER:
+            print("voter unregistered")
         else:
             print("get response: {0}".format(msg))
         sock.close()
+        return is_successful
 
     def get_options(self):
         sock = socket.create_connection(self.ctf_location)
@@ -68,36 +74,36 @@ class Voter(object):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--certfile', metavar='CERTFILE', nargs=1,
-                        default='test-cert.pem', dest='certfile')
+                        default='test-cert.pem', dest='certfile', type=str)
     parser.add_argument('-k', '--keyfile', metavar='KEYFILE', nargs=1,
-                        default='test-key.pem', dest='keyfile')
+                        default='test-key.pem', dest='keyfile', type=str)
     args = parser.parse_args()
 
-    voter = Voter(certfile=args.certfile, keyfile=args.keyfile)
-    voter.request_validation_number()
-    options = voter.get_options()
-    pprint(options)
+    voter = Voter(certfile=args.certfile[0], keyfile=args.keyfile[0])
+    if voter.request_validation_number():
+        options = voter.get_options()
+        pprint(options)
 
-    ballot = {'offices': []}
+        ballot = {'offices': []}
 
-    for office in options['offices']:
-        print("For {0}:".format(office['name']))
-        for i, candidate in enumerate(office['candidates']):
-            info = 'option {0}: '.format(i)
-            for key, value in candidate.items():
-                if key != 'sha1':
-                    info += '{0}: {1}, '.format(key, value)
-            print(info)
-        index = int(input(""))
+        for office in options['offices']:
+            print("For {0}:".format(office['name']))
+            for i, candidate in enumerate(office['candidates']):
+                info = 'option {0}: '.format(i)
+                for key, value in candidate.items():
+                    if key != 'sha1':
+                        info += '{0}: {1}, '.format(key, value)
+                print(info)
+            index = int(input(""))
 
-        candidate_hash = office['candidates'][index]['sha1']
+            candidate_hash = office['candidates'][index]['sha1']
 
-        ballot['offices'].append({
-                'name': office['name'],
-                'candidate_hash': candidate_hash,
-            })
+            ballot['offices'].append({
+                    'name': office['name'],
+                    'candidate_hash': candidate_hash,
+                })
 
-    voter.vote(ballot)
+        voter.vote(ballot)
 
 
 
