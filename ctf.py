@@ -97,9 +97,12 @@ class CTF(object):
             sock.close()
         except:
             print("could not establish communication with cla")
-        print("saving election results to 'results.json'")
-        with open('results.json', 'w') as fp:
-            json.dump(self.options, fp)
+        with self.lock:
+            print("final results:")
+            pprint(options)
+            print("saving election results to 'results.json'")
+            with open('results.json', 'w') as fp:
+                json.dump(self.options, fp)
 
     def voting_is_finished(self):
         self.is_finished = False
