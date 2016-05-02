@@ -81,19 +81,23 @@ class CTF(object):
         return response
 
     def output_results(self):
-        sock = socket.create_connection(self.cla_location)
-        sock = self.cla_context.wrap_socket(sock, server_hostname='CLA')
-        with self.lock:
-            vnumbytes = map(lambda x: x.to_bytes(8, 'big'), self.unused_validation_numbers)
-            vnumlistbytes = reduce(lambda x, y: x + y, vnumbytes, b'')
-            vnumcountbytes = len(self.unused_validation_numbers).to_bytes(4, 'big') 
-        sock.sendall(pm.VNUM_REMAINDERS + vnumcountbytes + vnumlistbytes)
-        resp = sock.recv(1)
-        if resp == pm.VNUM_REMAIN_ACCEPT:
-            print("CLA accepted unused vnums. Now printing election results")
+        try:
+            sock = socket.create_connection(self.cla_location)
+            sock = self.cla_context.wrap_socket(sock, server_hostname='CLA')
+            with self.lock:
+                vnumbytes = map(lambda x: x.to_bytes(8, 'big'), self.unused_validation_numbers)
+                vnumlistbytes = reduce(lambda x, y: x + y, vnumbytes, b'')
+                vnumcountbytes = len(self.unused_validation_numbers).to_bytes(4, 'big') 
+            sock.sendall(pm.VNUM_REMAINDERS + vnumcountbytes + vnumlistbytes)
+            resp = sock.recv(1)
+            if resp == pm.VNUM_REMAIN_ACCEPT:
+                print("CLA accepted unused vnums. Now printing election results")
+            else:
+                print("CLA response: {0}".format(resp))
             sock.close()
-        else:
-            print("CLA response: {0}".format(resp))
+        except:
+            print("could not establish communication with cla")
+        print("saving election results to 'results.json'")
         with open('results.json', 'w') as fp:
             json.dump(self.options, fp)
 
