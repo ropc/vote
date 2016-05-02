@@ -67,7 +67,14 @@ class Voter(object):
         print('sent in ballot:\n{0}\nwith random voter id: {1}'.format(ballot,
                                                             self.random_voter_id))
         msg = sock.recv(1)
-        print('ctf responds: {0}'.format(msg))
+        if msg == pm.VOTE_SUCCESS:
+            print("vote was successful")
+        elif msg == pm.INVALID_BALLOT:
+            print("vote was rejected: ballot was in incorrect format")
+        elif msg == pm.INVALID_VALIDATION_NUM:
+            print("vote was rejected: invalid validation number")
+        else:
+            print('ctf responds: {0}'.format(msg))
         sock.close()
 
 
