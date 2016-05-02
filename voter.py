@@ -4,6 +4,7 @@ import json
 from random import SystemRandom
 import protocolmessages as pm
 from pprint import pprint
+import argparse
 #from OpenSSL import crypto
 
 
@@ -65,7 +66,14 @@ class Voter(object):
 
 
 if __name__ == '__main__':
-    voter = Voter(certfile='test-cert.pem', keyfile='test-key.pem')
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-c', '--certfile', metavar='CERTFILE', nargs=1,
+                        default='test-cert.pem', dest='certfile')
+    parser.add_argument('-k', '--keyfile', metavar='KEYFILE', nargs=1,
+                        default='test-key.pem', dest='keyfile')
+    args = parser.parse_args()
+
+    voter = Voter(certfile=args.certfile, keyfile=args.keyfile)
     voter.request_validation_number()
     options = voter.get_options()
     pprint(options)
