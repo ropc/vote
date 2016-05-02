@@ -34,26 +34,17 @@ class CTF(object):
         self.optionsbytes = json.dumps(self.options).encode('utf-8')
         self.is_accepting_votes = False
         self.unused_validation_numbers = None
-        self.validation_num_lock = Lock()
+        self.is_finished = False
+        self.lock = Lock()
         for office in self.options['offices']:
             for candidate in office['candidates']:
                 candidate['votes'] = []
-                candidate['lock'] = Lock()
         self.options['office_indexes'] = {}
         for i, office in enumerate(self.options['offices']):
             self.options['office_indexes'][office['name']] = i
             office['candidate_hash_indexes'] = {}
             for j, candidate in enumerate(office['candidates']):
                 office['candidate_hash_indexes'][candidate['sha1']] = j
-
-
-    def validation_num_is_valid(self, validation_num):
-        is_valid = False
-        with self.validation_num_lock:
-            if validation_num in self.unused_validation_numbers:
-                self.unused_validation_numbers.remove(validation_num)
-                is_valid = True
-        return is_valid
 
     def ballot_is_valid(self, ballot):
         is_valid = False
@@ -67,25 +58,39 @@ class CTF(object):
                 return False
         return is_valid
 
-
     def count_vote(self, voter_random_id, validation_num, ballot):
         response = None
         if self.ballot_is_valid(ballot):
-            if self.validation_num_is_valid(validation_num):
-                for ballot_office in ballot['offices']:
-                    office_index = self.options['office_indexes'][ballot_office['name']]
-                    office = self.options['offices'][office_index]
-                    candidate_index = office['candidate_hash_indexes'][ballot_office['candidate_hash']]
-                    candidate = office['candidates'][candidate_index]
-                    assert candidate['sha1'] == ballot_office['candidate_hash'], "Wrong candidate matched"
-                    with candidate['lock']:
-                        candidate['votes'].append(voter_random_id)
-                        response = pm.VOTE_SUCCESS
-            else:
-                response = pm.INVALID_BALLOT
+            with self.lock:
+                if validation_num in self.unused_validation_numbers:
+                    self.unused_validation_numbers.remove(validation_num)
+                    if self.validation_num_is_valid(validation_num):
+                        for ballot_office in ballot['offices']:
+                            office_index = self.options['office_indexes'][ballot_office['name']]
+                            office = self.options['offices'][office_index]
+                            candidate_index = office['candidate_hash_indexes'][ballot_office['candidate_hash']]
+                            candidate = office['candidates'][candidate_index]
+                            assert candidate['sha1'] == ballot_office['candidate_hash'], "Wrong candidate matched"
+                            response = pm.VOTE_SUCCESS
+                else:
+                    response = pm.INVALID_VALIDATION_NUM
         else:
             response = pm.INVALID_BALLOT
         return response
+
+    def voting_is_finished(self):
+        self.is_finished = False
+        if ctf.lock.acquire(blocking=False):
+            if len(ctf.unused_validation_numbers) == 0:
+                self.is_finished = True
+            ctf.lock.release()
+        return self.is_finished
+
+    def force_finish_voting(self):
+        ctf.lock.acquire()
+        ctf.is_finished = True
+        print('voting finished by force')
+
 
 
 class CTFCLARequestHandler(BaseRequestHandler):
@@ -106,6 +111,9 @@ class CTFCLARequestHandler(BaseRequestHandler):
                 self.request.sendall(pm.VNUM_LIST_ACCEPT)
             else:
                 self.request.sendall(pm.UNKNOWN_MSG)
+
+    def finish(self):
+        print('done serving', self.client_address)
 
 
 class CTFVoterRequestHandler(BaseRequestHandler):
@@ -138,6 +146,8 @@ class CTFVoterRequestHandler(BaseRequestHandler):
         print('done serving', self.client_address)
         print("results so far:")
         pprint(ctf.options)
+        if ctf.voting_is_finished():
+            print('voting is finished')
 
 
 def acceptclarequests(ctf, ctfserver):
@@ -178,9 +188,16 @@ if __name__ == '__main__':
     #}
 
     ctfclaserver = ThreadingTLSServer(('localhost', 12347), CTFCLARequestHandler, sslcontext=ctf.cla_context)
-    ctfclaserver.timeout = 3
+    ctfclaserver.timeout = 1
     #acceptclarequests(ctf, ctfclaserver)
     Thread(target=acceptclarequests, args=(ctf, ctfclaserver)).start()
 
     ctfvoterserver = ThreadingTLSServer(('localhost', 12346), CTFVoterRequestHandler, sslcontext=ctf.voter_context)
-    ctfvoterserver.serve_forever()
+    ctfvoterserver.timeout = 1
+    try:
+        while not ctf.is_finished:
+            ctfvoterserver.handle_request()
+    except KeyboardInterrupt:
+        print("manually ending voting")
+        ctf.force_finish_voting()
+
